@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#22282d">
+<title>حسابات الورشة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#22282d;--bg:#eceae4;--card:#fff;--amb:#e8a317;--in:#1d7a4f;--out:#b8362b;--mut:#6b7279;--ln:#d9d6cd}
+*{box-sizing:border-box;margin:0}
+body{font:500 16px/1.5 Tajawal,Tahoma,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:84px}
+header{background:var(--ink);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid var(--amb)}
+header b{font-size:20px;font-weight:800}
+main{padding:14px;max-width:640px;margin:auto}
+nav{position:fixed;bottom:0;inset-inline:0;background:var(--ink);display:flex;padding-bottom:env(safe-area-inset-bottom,0)}
+nav button{flex:1;background:none;border:0;color:#aab0b5;padding:8px 2px;font:inherit;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button i{font-style:normal;font-size:20px}
+nav button.on{color:var(--amb);font-weight:800}
+.g,.p,.d{font:inherit;border-radius:10px;padding:10px 14px;border:1.5px solid var(--ink);background:none;color:var(--ink)}
+header .g{color:#fff;border-color:#fff5;padding:4px 10px;font-size:13px}
+.p{background:var(--amb);border-color:var(--amb);font-weight:800;width:100%;padding:14px;font-size:17px;margin-top:12px}
+.d{border-color:var(--out);color:var(--out);padding:2px 8px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);padding:12px;border-bottom:1px solid var(--ln)}
+.lst{border-radius:10px;overflow:hidden;margin:8px 0 16px;border:1px solid var(--ln)}
+.row small{color:var(--mut);display:block}
+.kp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.kp div{background:var(--card);padding:12px;border-radius:10px;border-inline-start:5px solid var(--ln)}
+.kp div.i{border-color:var(--in)}.kp div.o{border-color:var(--out)}.kp div.a{border-color:var(--amb)}
+.kp small{color:var(--mut);display:block;font-size:13px}.kp b{font-size:21px;font-weight:800}
+.big{grid-column:1/-1}.big b{font-size:30px}
+h3,h4{font-weight:800;margin:14px 0 4px}
+.pos{color:var(--in)}.neg{color:var(--out)}
+.tag{background:#f6dcd9;color:var(--out);border-radius:6px;padding:0 8px;font-size:13px;white-space:nowrap}
+table{width:100%;border-collapse:collapse;background:var(--card);font-size:14px}
+th,td{padding:8px 6px;text-align:start;border-bottom:1px solid var(--ln)}th{background:#f5f3ee;font-size:13px}
+tr.low td{background:#fdf0d0}
+input,select{font:inherit;width:100%;padding:10px;border:1.5px solid var(--ln);border-radius:8px;background:#fff;margin-top:2px}
+label{display:block;font-size:14px;color:var(--mut);margin-top:8px}
+.sheet{position:fixed;inset:0;background:#000a;display:flex;align-items:flex-end;z-index:9}
+.sheet[hidden]{display:none}
+.bx{background:var(--bg);width:100%;max-height:92vh;overflow:auto;padding:16px;border-radius:16px 16px 0 0;max-width:640px;margin:auto}
+.x{float:inline-end;border:0;background:none;font-size:22px}
+.ln{display:grid;grid-template-columns:2fr 1fr 1fr;gap:4px}
+.ln.pu{grid-template-columns:2fr 1fr 1fr 1fr}
+.tot{background:var(--ink);color:#fff;padding:10px;border-radius:10px;margin-top:10px;font-weight:700}
+.lg{max-width:360px;margin:12vh auto;padding:20px}
+.err{color:var(--out);margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sh" class="sheet" hidden></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,onSnapshot,doc,writeBatch,increment} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ===== الصق إعدادات Firebase هنا (راجع ملف README) ===== */
+const cfg={apiKey:"AIzaSyCTEGX954ef-lrL3S-cwPXUNoWEeNj974k",authDomain:"mano-workshop.firebaseapp.com",projectId:"mano-workshop",storageBucket:"mano-workshop.firebasestorage.app",messagingSenderId:"151399949981",appId:"1:151399949981:web:0798b44ba0872a1f491674"};
+/* ======================================================== */
+
+const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
+const $=s=>document.querySelector(s);
+const n=v=>parseFloat(v)||0,f=v=>n(v).toLocaleString('en-US',{maximumFractionDigits:2});
+const sum=(a,g)=>(a||[]).reduce((t,x)=>t+n(g(x)),0);
+const td=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const K=['products','suppliers','customers','sales','purchases','payments','expenses'];
+const D=Object.fromEntries(K.map(k=>[k,[]]));
+let user=null,tab='home',mon=td().slice(0,7),form='',unsub=[];
+const T=[['home','الرئيسية','📊'],['sales','الفواتير','🔧'],['stock','المخزن','📦'],['accts','الحسابات','👥'],['exp','المصروفات','💸']];
+
+/* ---------- حسابات ---------- */
+const debt=(k,id)=>sum(D[k=='s'?'purchases':'sales'].filter(x=>x.party==id),x=>x.total-x.paid)-sum(D.payments.filter(p=>p.kind==k&&p.party==id),p=>p.amount);
+const srt=a=>[...a].sort((x,y)=>y.date.localeCompare(x.date)||n(y.t)-n(x.t));
+const inM=x=>x.date.startsWith(mon);
+
+/* ---------- الشاشات ---------- */
+const V={
+home(){
+ const S=D.sales.filter(inM),E=D.expenses.filter(inM),P=D.purchases.filter(inM);
+ const rev=sum(S,s=>s.total),gross=sum(S,s=>n(s.labor)+sum(s.items,i=>(i.price-i.cost)*i.qty)),ex=sum(E,x=>x.amount);
+ const pay=k=>sum(D.payments.filter(p=>p.kind==k&&inM(p)),p=>p.amount);
+ const cin=sum(S,s=>s.paid)+pay('c'),cout=sum(P,p=>p.paid)+pay('s')+ex;
+ const t=td(),tr=sum(D.sales.filter(s=>s.date==t),s=>s.total),te=sum(D.expenses.filter(x=>x.date==t),x=>x.amount);
+ const ds=sum(D.suppliers,s=>debt('s',s.id)),dc=sum(D.customers,c=>debt('c',c.id));
+ const low=D.products.filter(p=>n(p.qty)<=2);
+ const net=gross-ex;
+ return `<div class=kp><div class="i"><small>إيراد اليوم</small><b>${f(tr)}</b></div><div class="o"><small>مصروف اليوم</small><b>${f(te)}</b></div></div>
+ <label>الشهر<input type=month value=${mon} onchange="setM(this.value)"></label>
+ <div class=kp><div class="big a"><small>صافي ربح الشهر (بعد المصروفات)</small><b class="${net<0?'neg':'pos'}">${f(net)}</b></div>
+ <div class=i><small>إجمالي الفواتير</small><b>${f(rev)}</b></div><div class=i><small>ربح الفواتير</small><b>${f(gross)}</b></div>
+ <div class=o><small>المصروفات</small><b>${f(ex)}</b></div><div class=a><small>صافي النقد (وارد − صادر)</small><b class="${cin-cout<0?'neg':''}">${f(cin-cout)}</b></div>
+ <div class=o><small>ديون الموردين علينا</small><b>${f(ds)}</b></div><div class=i><small>مستحق لنا عند العملاء</small><b>${f(dc)}</b></div>
+ <div><small>قيمة المخزن (شراء)</small><b>${f(sum(D.products,p=>p.qty*p.cost))}</b></div><div><small>قيمة المخزن (بيع متوقع)</small><b>${f(sum(D.products,p=>p.qty*p.price))}</b></div></div>
+ ${low.length?`<h4>⚠ قطع على وشك النفاد</h4><div class=lst>${low.map(p=>`<div class=row><span>${esc(p.name)}</span><b>${f(p.qty)}</b></div>`).join('')}</div>`:''}
+ <button class=g onclick="bk()">⬇ نسخة احتياطية</button>`},
+sales(){return `<button class=p onclick="newSale()">+ فاتورة إصلاح جديدة</button><div class=lst>${srt(D.sales).map(s=>{const r=s.total-s.paid;return `<div class=row><div onclick="openP('c','${s.party}')"><b>${esc(s.pname)}</b> ${esc(s.car)}<small>${s.date}${s.items.length?' • '+s.items.length+' قطعة':''}</small></div><div style=text-align:end><b>${f(s.total)}</b>${r>0?`<br><span class=tag>متبقي ${f(r)}</span>`:''}<br><button class=d onclick="delSale('${s.id}')">حذف</button></div></div>`}).join('')||'<div class=row>لا توجد فواتير بعد</div>'}</div>`},
+stock(){return `<button class=p onclick="newBuy()">+ شراء قطع من مورد</button><h4>المخزن</h4><table><tr><th>الصنف<th>الكمية<th>الشراء<th>البيع</tr>${[...D.products].sort((a,b)=>a.name.localeCompare(b.name,'ar')).map(p=>`<tr class="${n(p.qty)<=2?'low':''}"><td>${esc(p.name)}<td>${f(p.qty)}<td>${f(p.cost)}<td>${f(p.price)}</tr>`).join('')}</table>`},
+accts(){const L=(k,col)=>`<div class=lst>${D[col].map(p=>({p,d:debt(k,p.id)})).sort((a,b)=>b.d-a.d).map(({p,d})=>`<div class=row onclick="openP('${k}','${p.id}')"><div>${esc(p.name)}<small>${esc(p.phone||'')}</small></div><b class="${d>0?'neg':''}">${f(d)}</b></div>`).join('')||'<div class=row>لا يوجد</div>'}</div>`;
+ return `<h3>الموردون <small style="font-weight:400;color:var(--mut)">(المبلغ = ما علينا)</small></h3>${L('s','suppliers')}<h3>العملاء <small style="font-weight:400;color:var(--mut)">(المبلغ = ما لنا)</small></h3>${L('c','customers')}`},
+exp(){const E=srt(D.expenses).filter(inM);return `<button class=p onclick="newExp()">+ تسجيل مصروف</button><label>الشهر<input type=month value=${mon} onchange="setM(this.value)"></label><div class=kp><div class="o big"><small>إجمالي الشهر</small><b>${f(sum(E,x=>x.amount))}</b></div><div><small>مرتبات</small><b>${f(sum(E.filter(x=>x.type.startsWith('راتب')),x=>x.amount))}</b></div></div><div class=lst>${E.map(x=>`<div class=row><div><b>${esc(x.type)}</b> ${esc(x.who||'')}<small>${x.date} ${esc(x.note||'')}</small></div><div style=text-align:end><b>${f(x.amount)}</b><br><button class=d onclick="delExp('${x.id}')">حذف</button></div></div>`).join('')||'<div class=row>لا توجد مصروفات</div>'}</div>`}};
+
+function render(){
+ if(!user){$('#app').innerHTML=`<div class=lg><h3>حسابات الورشة</h3><form onsubmit="login(this);return false"><label>البريد الإلكتروني<input name=e type=email required></label><label>كلمة المرور<input name=p type=password required></label><button class=p>دخول</button><div class=err id=er></div></form></div>`;return}
+ $('#app').innerHTML=`<header><b>🔧 حسابات الورشة</b><button class=g onclick="out()">خروج</button></header><main>${V[tab]()}</main><nav>${T.map(([k,l,i])=>`<button class="${k==tab?'on':''}" onclick="go('${k}')"><i>${i}</i>${l}</button>`).join('')}</nav>`}
+
+/* ---------- النوافذ ---------- */
+const sh=h=>{$('#sh').innerHTML=`<div class=bx><button class=x onclick="cl()">✕</button>${h}</div>`;$('#sh').hidden=false};
+const cl=()=>{$('#sh').hidden=true;form=''};
+const dl=(id,a)=>`<datalist id=${id}>${a.map(x=>`<option>${esc(x.name||x)}`).join('')}</datalist>`;
+const val=id=>$('#'+id).value.trim();
+const rows=()=>[...document.querySelectorAll('#ls .ln')].map(r=>[...r.querySelectorAll('select,input')].map(e=>e.value));
+
+function newSale(){form='s';
+ sh(`<h3>فاتورة إصلاح</h3><label>التاريخ<input id=dt type=date value=${td()}></label><label>العميل<input id=cn list=cl placeholder="عميل نقدي"></label>${dl('cl',D.customers)}<label>الهاتف<input id=cp type=tel></label><label>السيارة / اللوحة<input id=car></label><label>المصنعية<input id=lb type=number inputmode=decimal></label><h4>قطع الغيار المستخدمة</h4><div id=ls></div><button class=g onclick="addL()">+ قطعة</button><label>المدفوع (فارغ = كامل المبلغ)<input id=pd type=number inputmode=decimal></label><div id=tt class=tot></div><button class=p onclick="saveSale()">حفظ الفاتورة</button>`);
+ $('#sh').oninput=calc;calc()}
+function newBuy(){form='b';
+ sh(`<h3>شراء قطع من مورد</h3><label>التاريخ<input id=dt type=date value=${td()}></label><label>المورد<input id=cn list=cl required></label>${dl('cl',D.suppliers)}<label>هاتف المورد<input id=cp type=tel></label><h4>الأصناف</h4><small style=color:var(--mut)>الاسم — الكمية — سعر الشراء — سعر البيع</small><div id=ls></div>${dl('pl',D.products)}<button class=g onclick="addL()">+ صنف</button><label>المدفوع للمورد (فارغ = كامل المبلغ)<input id=pd type=number inputmode=decimal></label><div id=tt class=tot></div><button class=p onclick="saveBuy()">حفظ الشراء</button>`);
+ $('#sh').oninput=calc;addL()}
+function addL(){$('#ls').insertAdjacentHTML('beforeend',form=='s'
+ ?`<div class=ln><select onchange="fp(this)"><option value="">— قطعة —</option>${D.products.filter(p=>p.qty>0).map(p=>`<option value=${p.id}>${esc(p.name)} (${f(p.qty)})</option>`).join('')}</select><input type=number placeholder=كمية inputmode=decimal><input type=number placeholder=سعر inputmode=decimal></div>`
+ :`<div class="ln pu"><input list=pl placeholder=الصنف onchange="fq(this)"><input type=number placeholder=كمية inputmode=decimal><input type=number placeholder=شراء inputmode=decimal><input type=number placeholder=بيع inputmode=decimal></div>`)}
+const fp=s=>{const p=D.products.find(x=>x.id==s.value),i=s.parentNode.querySelectorAll('input');if(p){i[0].value=i[0].value||1;i[1].value=p.price}calc()};
+const fq=e=>{const p=D.products.find(x=>x.name==e.value.trim()),i=e.parentNode.querySelectorAll('input');if(p){i[2].value=i[2].value||p.price;i[1].value=i[1].value||p.cost}};
+function calc(){const t=form=='s'?n(val('lb'))+sum(rows(),r=>r[1]*r[2]):sum(rows(),r=>r[1]*r[2]);const p=val('pd')===''?t:n(val('pd'));if($('#tt'))$('#tt').textContent=`الإجمالي ${f(t)} • المتبقي ${f(t-p)}`}
+function party(b,col,name,phone){const p=D[col].find(x=>x.name==name);if(p){if(phone&&phone!=p.phone)b.update(doc(db,col,p.id),{phone});return p.id}const r=doc(collection(db,col));b.set(r,{name,phone});return r.id}
+
+async function saveSale(){
+ const items=rows().map(r=>{const p=D.products.find(x=>x.id==r[0]);return p&&n(r[1])>0?{pid:p.id,name:p.name,qty:n(r[1]),price:n(r[2]),cost:n(p.cost)}:null}).filter(Boolean);
+ for(const i of items){const need=sum(items.filter(x=>x.pid==i.pid),x=>x.qty);if(need>D.products.find(p=>p.id==i.pid).qty)return alert('الكمية غير كافية في المخزن: '+i.name)}
+ const labor=n(val('lb')),total=labor+sum(items,i=>i.qty*i.price);if(!total)return alert('أدخل مصنعية أو قطعة');
+ const paid=val('pd')===''?total:n(val('pd')),b=writeBatch(db),name=val('cn')||'عميل نقدي';
+ const pid=party(b,'customers',name,val('cp'));
+ b.set(doc(collection(db,'sales')),{date:val('dt'),party:pid,pname:name,car:val('car'),labor,items,total,paid,t:Date.now()});
+ items.forEach(i=>b.update(doc(db,'products',i.pid),{qty:increment(-i.qty)}));
+ await b.commit();cl()}
+
+async function saveBuy(){
+ const name=val('cn');if(!name)return alert('اكتب اسم المورد');
+ const m={},items=[];
+ for(const r of rows()){const nm=r[0].trim(),q=n(r[1]),c=n(r[2]);if(!nm||q<=0)continue;items.push({name:nm,qty:q,cost:c,price:n(r[3])});
+  let e=m[nm]||(()=>{const p=D.products.find(x=>x.name==nm);return p?{ref:doc(db,'products',p.id),qty:n(p.qty),cost:n(p.cost),price:n(p.price),nw:0}:{ref:doc(collection(db,'products')),qty:0,cost:0,price:0,nw:1,name:nm}})();
+  const nq=e.qty+q;e.cost=nq>0?(Math.max(e.qty,0)*e.cost+q*c)/(Math.max(e.qty,0)+q):c;e.qty=nq;e.price=n(r[3])||e.price;m[nm]=e}
+ const total=sum(items,i=>i.qty*i.cost);if(!total)return alert('أدخل صنفاً بكمية وسعر');
+ const paid=val('pd')===''?total:n(val('pd')),b=writeBatch(db),pid=party(b,'suppliers',name,val('cp'));
+ b.set(doc(collection(db,'purchases')),{date:val('dt'),party:pid,pname:name,items,total,paid,t:Date.now()});
+ Object.values(m).forEach(e=>{const d={qty:e.qty,cost:+e.cost.toFixed(2),price:e.price};e.nw?b.set(e.ref,{...d,name:e.name}):b.update(e.ref,d)});
+ await b.commit();cl()}
+
+function newExp(){const who=[...new Set(D.expenses.map(x=>x.who).filter(Boolean))];
+ sh(`<h3>تسجيل مصروف</h3><label>التاريخ<input id=dt type=date value=${td()}></label><label>النوع<select id=ty><option>نثريات<option>راتب شهري<option>راتب أسبوعي<option>سلفة<option>حافز<option>إيجار / كهرباء / مياه<option>أخرى</select></label><label>الموظف (للمرتبات والسلف)<input id=wh list=wl></label>${dl('wl',who)}<label>المبلغ<input id=am type=number inputmode=decimal></label><label>ملاحظة (مثل: خصم غياب)<input id=nt></label><button class=p onclick="saveExp()">حفظ</button>`)}
+async function saveExp(){const amount=n(val('am'));if(!amount)return alert('أدخل المبلغ');
+ const b=writeBatch(db);b.set(doc(collection(db,'expenses')),{date:val('dt'),type:val('ty'),who:val('wh'),amount,note:val('nt'),t:Date.now()});await b.commit();cl()}
+
+function openP(k,id){const col=k=='s'?'suppliers':'customers',p=D[col].find(x=>x.id==id);if(!p)return;
+ const inv=srt(D[k=='s'?'purchases':'sales'].filter(x=>x.party==id)),pays=srt(D.payments.filter(x=>x.kind==k&&x.party==id)),d=debt(k,id);
+ sh(`<h3>${esc(p.name)}</h3><div>${esc(p.phone||'')}</div><div class=tot>${k=='s'?'علينا للمورد':'مستحق على العميل'}: ${f(d)}</div><label>مبلغ الدفعة<input id=am type=number inputmode=decimal></label><button class=p onclick="savePay('${k}','${id}')">${k=='s'?'تسجيل دفعة للمورد':'تسجيل دفعة من العميل'}</button><h4>الفواتير</h4><div class=lst>${inv.map(x=>`<div class=row><span>${x.date} ${esc(x.car||'')}</span><span>${f(x.total)} / مدفوع ${f(x.paid)}</span></div>`).join('')}</div><h4>الدفعات</h4><div class=lst>${pays.map(x=>`<div class=row><span>${x.date}</span><b>${f(x.amount)}</b></div>`).join('')||'<div class=row>لا توجد</div>'}</div>`)}
+async function savePay(k,id){const amount=n(val('am'));if(!amount)return;const col=k=='s'?'suppliers':'customers',p=D[col].find(x=>x.id==id),b=writeBatch(db);
+ b.set(doc(collection(db,'payments')),{date:td(),kind:k,party:id,pname:p.name,amount,t:Date.now()});await b.commit();cl()}
+
+async function delSale(id){if(!confirm('حذف الفاتورة وإرجاع القطع للمخزن؟'))return;const s=D.sales.find(x=>x.id==id),b=writeBatch(db);
+ s.items.forEach(i=>b.update(doc(db,'products',i.pid),{qty:increment(i.qty)}));b.delete(doc(db,'sales',id));await b.commit()}
+async function delExp(id){if(!confirm('حذف المصروف؟'))return;const b=writeBatch(db);b.delete(doc(db,'expenses',id));await b.commit()}
+function bk(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='backup-'+td()+'.json';a.click()}
+
+/* ---------- الدخول والمزامنة ---------- */
+async function login(fm){$('#er').textContent='';try{await signInWithEmailAndPassword(auth,fm.e.value.trim(),fm.p.value)}catch(e){console.error(e);const c=e.code||'';$('#er').textContent=c.includes('unauthorized-domain')?'النطاق غير مسموح في Firebase (Authorized domains)':c.includes('operation-not-allowed')?'فعّل Email/Password في Firebase':c.includes('network')?'تحقق من الاتصال بالإنترنت':'بيانات الدخول غير صحيحة'}}
+const out=()=>signOut(auth);
+const setM=v=>{mon=v;render()};
+const go=t=>{tab=t;render();scrollTo(0,0)};
+onAuthStateChanged(auth,u=>{user=u;unsub.forEach(x=>x());unsub=[];
+ if(u)K.forEach(k=>unsub.push(onSnapshot(collection(db,k),s=>{D[k]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.error(k,e))));
+ render()});
+Object.assign(window,{setM,go,out,login,render,newSale,newBuy,newExp,addL,fp,fq,saveSale,saveBuy,saveExp,openP,savePay,delSale,delExp,bk,cl,calc});
+</script>
+</body>
+</html>
